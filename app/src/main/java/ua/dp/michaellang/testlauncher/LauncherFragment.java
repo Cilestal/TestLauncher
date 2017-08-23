@@ -4,7 +4,9 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
@@ -14,6 +16,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+import timber.log.Timber;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -26,6 +29,25 @@ import java.util.List;
  */
 public class LauncherFragment extends Fragment {
     private RecyclerView mRecyclerView;
+    private ImageLoader<ImageView> mImageLoader;
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        PackageManager pm = getActivity().getPackageManager();
+        mImageLoader = new ImageLoader<>(pm, new Handler());
+
+        mImageLoader.setLoaderListener(new ImageLoader.ImageLoaderListener<ImageView>() {
+            @Override
+            public void onImageLoaded(ImageView target, Drawable drawable) {
+                target.setImageDrawable(drawable);
+            }
+        });
+
+        mImageLoader.start();
+        mImageLoader.getLooper();
+        Timber.d("ImageLoader thread started.");
+    }
 
     @Nullable
     @Override
@@ -60,6 +82,12 @@ public class LauncherFragment extends Fragment {
         mRecyclerView.setAdapter(adapter);
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        mImageLoader.clearQueue();
+    }
+
     public static LauncherFragment newInstance() {
         return new LauncherFragment();
     }
@@ -82,7 +110,7 @@ public class LauncherFragment extends Fragment {
             PackageManager pm = getActivity().getPackageManager();
             String appName = mResolveInfo.loadLabel(pm).toString();
             mNameTextView.setText(appName);
-            mImageView.setImageDrawable(resolveInfo.loadIcon(pm));
+            mImageLoader.loadImage(mImageView, resolveInfo);
         }
 
         @Override
